@@ -1,6 +1,7 @@
 from torch.nn.modules.module import Module
 from torch.nn.functional import avg_pool2d, max_pool2d
-from ..functions.roi_align import RoIAlignFunction
+#from ..functions.roi_align import RoIAlignFunction
+from ...layers.roi_align import ROIAlign as RoIAlignFunction
 
 
 class RoIAlign(Module):
@@ -12,8 +13,7 @@ class RoIAlign(Module):
         self.spatial_scale = float(spatial_scale)
 
     def forward(self, features, rois, scale):
-        return RoIAlignFunction(self.aligned_height, self.aligned_width,
-                                scale)(features, rois)
+        return RoIAlignFunction(self.aligned_height, self.aligned_width, scale)(features, rois)
 
 class RoIAlignAvg(Module):
     def __init__(self, aligned_height, aligned_width, spatial_scale):
@@ -24,8 +24,7 @@ class RoIAlignAvg(Module):
         self.spatial_scale = float(spatial_scale)
 
     def forward(self, features, rois, scale):
-        x =  RoIAlignFunction(self.aligned_height+1, self.aligned_width+1,
-                                scale)(features, rois)
+        x =  RoIAlignFunction(self.aligned_height+1, self.aligned_width+1, scale)(features, rois)
         return avg_pool2d(x, kernel_size=2, stride=1)
 
 class RoIAlignMax(Module):
@@ -37,6 +36,5 @@ class RoIAlignMax(Module):
         self.spatial_scale = float(spatial_scale)
 
     def forward(self, features, rois, scale):
-        x =  RoIAlignFunction(self.aligned_height+1, self.aligned_width+1,
-                                scale)(features, rois)
+        x =  RoIAlignFunction(self.aligned_height+1, self.aligned_width+1, scale)(features, rois)
         return max_pool2d(x, kernel_size=2, stride=1)

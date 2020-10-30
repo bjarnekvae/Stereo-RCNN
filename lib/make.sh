@@ -9,11 +9,7 @@ export CUDA_PATH=/usr/local/cuda/
 export CXXFLAGS="-std=c++11"
 export CFLAGS="-std=c99"
 
-python setup.py build_ext --inplace
-rm -rf build
-
-CUDA_ARCH="-gencode arch=compute_30,code=sm_30 \
-           -gencode arch=compute_35,code=sm_35 \
+CUDA_ARCH="-gencode arch=compute_35,code=sm_35 \
            -gencode arch=compute_50,code=sm_50 \
            -gencode arch=compute_52,code=sm_52 \
            -gencode arch=compute_60,code=sm_60 \
@@ -25,15 +21,20 @@ echo "Compiling nms kernels by nvcc..."
 nvcc -c -o nms_cuda_kernel.cu.o nms_cuda_kernel.cu \
 	 -D GOOGLE_CUDA=1 -x cu -Xcompiler -fPIC $CUDA_ARCH
 
-cd ../
-python build.py
+cd ../../../
+#python build.py
+
+python setup.py build_ext --inplace
+rm -rf build
 
 # compile roi_align
-cd ../../
-cd model/roi_align/src
-echo "Compiling roi align kernels by nvcc..."
-nvcc -c -o roi_align_kernel.cu.o roi_align_kernel.cu \
-	 -D GOOGLE_CUDA=1 -x cu -Xcompiler -fPIC $CUDA_ARCH
-cd ../
-python build.py
+
+#cd ../../
+#cd model/roi_align/src
+#echo "Compiling roi align kernels by nvcc..."
+#nvcc -c -o roi_align_kernel.cu.o roi_align_kernel.cu \
+#	 -D GOOGLE_CUDA=1 -x cu -Xcompiler -fPIC $CUDA_ARCH
+#cd ../
+#python build.py
+
 

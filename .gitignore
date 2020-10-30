@@ -6,3 +6,7 @@ data/kitti/object
 *.pyc
 *.so
 *.o
+.idea/
+Stereo_RCNN.egg-info/
+build/
+

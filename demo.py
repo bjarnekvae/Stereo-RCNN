@@ -17,14 +17,10 @@ import argparse
 import shutil
 import time
 import cv2
-from scipy.misc import imread
+#from scipy.misc import imread
 import torch
 from torch.autograd import Variable
-import torch.nn as nn
-import torch.optim as optim
 import math as m
-from roi_data_layer.roidb import combined_roidb
-from roi_data_layer.roibatchLoader import roibatchLoader
 from model.utils.config import cfg
 from model.rpn.bbox_transform import clip_boxes
 from model.nms.nms_wrapper import nms
@@ -35,11 +31,6 @@ from model.utils import kitti_utils
 from model.utils import vis_3d_utils as vis_utils
 from model.utils import box_estimator as box_estimator
 from model.dense_align import dense_align
-
-try:
-    xrange          # Python 2
-except NameError:
-    xrange = range  # Python 3
 
 def parse_args():
   """
@@ -83,11 +74,11 @@ if __name__ == '__main__':
   print('load model successfully!')
 
   # initilize the tensor holder here.
-  im_left_data = Variable(torch.FloatTensor(1).cuda(), volatile=True)
-  im_right_data = Variable(torch.FloatTensor(1).cuda(), volatile=True)
-  im_info = Variable(torch.FloatTensor(1).cuda(), volatile=True)
-  num_boxes = Variable(torch.LongTensor(1).cuda(), volatile=True)
-  gt_boxes = Variable(torch.FloatTensor(1).cuda(), volatile=True)
+  im_left_data = Variable(torch.FloatTensor(1).cuda())
+  im_right_data = Variable(torch.FloatTensor(1).cuda())
+  im_info = Variable(torch.FloatTensor(1).cuda())
+  num_boxes = Variable(torch.LongTensor(1).cuda())
+  gt_boxes = Variable(torch.FloatTensor(1).cuda())
 
   stereoRCNN.cuda()
 
@@ -100,15 +91,11 @@ if __name__ == '__main__':
   img_l_path = 'demo/left.png'
   img_r_path = 'demo/right.png'
 
-  img_left = imread(img_l_path)
-  img_right = imread(img_r_path)
+  img_left = cv2.imread(img_l_path)
+  img_right = cv2.imread(img_r_path)
 
-  # rgb -> bgr
-  img_left = img_left[:,:,::-1].astype(np.float32, copy=False)
-  img_right = img_right[:,:,::-1].astype(np.float32, copy=False)
-
-  img_left -= cfg.PIXEL_MEANS
-  img_right -= cfg.PIXEL_MEANS
+  #img_left -= cfg.PIXEL_MEANS TODO fix this
+  #img_right -= cfg.PIXEL_MEANS
 
   im_shape = img_left.shape
   im_size_min = np.min(im_shape[0:2])
@@ -130,9 +117,9 @@ if __name__ == '__main__':
 
   info = torch.from_numpy(info)
 
-  im_left_data.data.resize_(img_left.size()).copy_(img_left)
-  im_right_data.data.resize_(img_right.size()).copy_(img_right)
-  im_info.data.resize_(info.size()).copy_(info)
+  im_left_data.resize_(img_left.size()).copy_(img_left)
+  im_right_data.resize_(img_right.size()).copy_(img_right)
+  im_info.resize_(info.size()).copy_(info)
   
   det_tic = time.time()
   rois_left, rois_right, cls_prob, bbox_pred, bbox_pred_dim, kpts_prob,\
@@ -228,7 +215,7 @@ if __name__ == '__main__':
   pointcloud = kitti_utils.get_point_cloud('demo/lidar.bin', calib)
   im_box = vis_utils.vis_lidar_in_bev(pointcloud, width=im2show_left.shape[0]*2)
 
-  for j in xrange(1, len(kitti_classes)):
+  for j in range(1, len(kitti_classes)):
     inds = torch.nonzero(scores[:,j] > eval_thresh).view(-1)
     # if there is det
     if inds.numel() > 0:

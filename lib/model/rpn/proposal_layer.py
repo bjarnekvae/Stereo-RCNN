@@ -15,9 +15,9 @@ import torch.nn as nn
 import numpy as np
 import math
 from model.utils.config import cfg
-from generate_anchors import generate_anchors, generate_anchors_all_pyramids
-from bbox_transform import bbox_transform_inv, clip_boxes, clip_boxes_batch
-from model.nms.nms_wrapper import nms
+from .generate_anchors import generate_anchors, generate_anchors_all_pyramids
+from .bbox_transform import bbox_transform_inv, clip_boxes, clip_boxes_batch
+from model.layers import nms
 
 import pdb
 
@@ -119,20 +119,25 @@ class _ProposalLayer(nn.Module):
             # 7. take after_nms_topN (e.g. 300)
             # 8. return the top proposals (-> RoIs top)
 
-            keep_idx_i_left = nms(torch.cat((proposals_single_left, scores_single), 1), nms_thresh, force_cpu=not cfg.USE_GPU_NMS)
+            #proposals_single_left = torch.transpose(proposals_single_left, 0, 1)
+            #scores_single = torch.transpose(scores_single, 0, 1)
+
+            #proposals_single_left = proposals_single_left.view(proposals_single_left.size()[0], proposals_single_left.size()[1], 1)
+            scores_single = scores_single.squeeze(-1)
+
+            keep_idx_i_left = nms(proposals_single_left, scores_single, nms_thresh)
             keep_idx_i_left = keep_idx_i_left.long().view(-1)
 
-            keep_idx_i_right = nms(torch.cat((proposals_single_right, scores_single), 1), nms_thresh, force_cpu=not cfg.USE_GPU_NMS)
+            keep_idx_i_right = nms(proposals_single_right, scores_single, nms_thresh)
             keep_idx_i_right = keep_idx_i_right.long().view(-1)
 
-            keep_idx_i = torch.from_numpy(np.intersect1d(keep_idx_i_left.cpu().numpy(), \
+            keep_idx_i = torch.from_numpy(np.intersect1d(keep_idx_i_left.cpu().numpy(),
                                                          keep_idx_i_right.cpu().numpy())).cuda()
             if post_nms_topN > 0:
                 keep_idx_i = keep_idx_i[:post_nms_topN]
 
             proposals_single_left = proposals_single_left[keep_idx_i, :]
             proposals_single_right = proposals_single_right[keep_idx_i, :]
-            scores_single = scores_single[keep_idx_i, :]
 
             # padding 0 at the end.
             num_proposal = proposals_single_left.size(0)

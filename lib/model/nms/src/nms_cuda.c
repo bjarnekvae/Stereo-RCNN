@@ -1,5 +1,7 @@
-#include <THC/THC.h>
+//#include <iostream>
+#include <torch/extension.h>
 #include <stdio.h>
+#include <THC/THC.h>
 #include "nms_cuda_kernel.h"
 
 // this symbol will be resolved automatically from PyTorch libs
@@ -10,7 +12,7 @@ int nms_cuda(THCudaIntTensor *keep_out, THCudaTensor *boxes_host,
 
 	nms_cuda_compute(THCudaIntTensor_data(state, keep_out), 
 		         THCudaIntTensor_data(state, num_out), 
-      	                 THCudaTensor_data(state, boxes_host), 
+      	         THCudaTensor_data(state, boxes_host),
 		         THCudaTensor_size(state, boxes_host, 0),
 		         THCudaTensor_size(state, boxes_host, 1),
 		         nms_overlap_thresh);

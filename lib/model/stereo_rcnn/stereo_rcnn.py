@@ -41,8 +41,8 @@ class _StereoRCNN(nn.Module):
         self.RCNN_rpn = _Stereo_RPN(self.dout_base_model)
         self.RCNN_proposal_target = _ProposalTargetLayer(self.n_classes)
 
-        self.RCNN_roi_align = RoIAlignAvg(cfg.POOLING_SIZE, cfg.POOLING_SIZE, 1.0/16.0)
-        self.RCNN_roi_kpts_align = RoIAlignAvg(cfg.POOLING_SIZE*2, cfg.POOLING_SIZE*2, 1.0/16.0)
+        self.RCNN_roi_align = RoIAlignAvg(cfg.POOLING_SIZE, cfg.POOLING_SIZE, 1.0/16.0, 2)
+        self.RCNN_roi_kpts_align = RoIAlignAvg(cfg.POOLING_SIZE*2, cfg.POOLING_SIZE*2, 1.0/16.0, 2)
         
     def _init_weights(self):
         def normal_init(m, mean, stddev, truncated=False):

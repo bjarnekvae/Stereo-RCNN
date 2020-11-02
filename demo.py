@@ -23,7 +23,7 @@ from torch.autograd import Variable
 import math as m
 from model.utils.config import cfg
 from model.rpn.bbox_transform import clip_boxes
-from model.nms.nms_wrapper import nms
+from model.layers import nms
 from model.rpn.bbox_transform import bbox_transform_inv, kpts_transform_inv, border_transform_inv
 from model.utils.net_utils import save_net, load_net, vis_detections
 from model.stereo_rcnn.resnet import resnet
@@ -234,10 +234,15 @@ if __name__ == '__main__':
       cls_dets_left = cls_dets_left[order]
       cls_dets_right = cls_dets_right[order]
       cls_dim_orien = cls_dim_orien[order]
-      cls_kpts = cls_kpts[order] 
+      cls_kpts = cls_kpts[order]
 
-      keep = nms(cls_dets_left, cfg.TEST.NMS, force_cpu= not cfg.USE_GPU_NMS)
-      keep = keep.view(-1).long()
+      #scores_single = cls_dets_left[].squeeze(-1)
+      #keep_idx_i_left = nms(proposals_single_left, scores_single, nms_thresh)
+      #print(cls_dets_left.shape)
+      #print(cfg.TEST.NMS.shape)
+
+      keep = nms(cls_boxes_left, cls_scores, cfg.TEST.NMS)
+      keep = keep.view(-1).long().cpu().numpy()
       cls_dets_left = cls_dets_left[keep]
       cls_dets_right = cls_dets_right[keep]
       cls_dim_orien = cls_dim_orien[keep]
@@ -251,9 +256,9 @@ if __name__ == '__main__':
             0.5*(infered_kpts[detect_idx,1]-infered_kpts[detect_idx,0]):
           cls_kpts[detect_idx,3:5] = infered_kpts[detect_idx]
 
-      im2show_left = vis_detections(im2show_left, kitti_classes[j], \
-                      cls_dets_left.cpu().numpy(), vis_thresh, cls_kpts.cpu().numpy())
-      im2show_right = vis_detections(im2show_right, kitti_classes[j], \
+      im2show_left = vis_detections(im2show_left, kitti_classes[j],
+                      cls_dets_left.cpu().numpy(), vis_thresh, cls_kpts)
+      im2show_right = vis_detections(im2show_right, kitti_classes[j],
                       cls_dets_right.cpu().numpy(), vis_thresh) 
 
       # read intrinsic
@@ -270,13 +275,13 @@ if __name__ == '__main__':
         if cls_dets_left[detect_idx, -1] > eval_thresh:
           box_left = cls_dets_left[detect_idx,0:4].cpu().numpy()  # based on origin image
           box_right = cls_dets_right[detect_idx,0:4].cpu().numpy() 
-          kpts_u = cls_kpts[detect_idx,0]
+          kpts_u = cls_kpts[detect_idx,0].cpu().numpy()
           dim = cls_dim_orien[detect_idx,0:3].cpu().numpy()
           sin_alpha = cls_dim_orien[detect_idx,3]
           cos_alpha = cls_dim_orien[detect_idx,4]
           alpha = m.atan2(sin_alpha, cos_alpha)
-          status, state = box_estimator.solve_x_y_z_theta_from_kpt(im2show_left.shape,\
-                                      calib, alpha, dim, box_left, box_right, cls_kpts[detect_idx])
+          status, state = box_estimator.solve_x_y_z_theta_from_kpt(im2show_left.shape,
+                                      calib, alpha, dim, box_left, box_right, cls_kpts[detect_idx].cpu().numpy())
           if status > 0: # not faild
             poses = im_left_data.data.new(8).zero_()
             xyz = np.array([state[0], state[1], state[2]])
@@ -290,8 +295,8 @@ if __name__ == '__main__':
       
       if boxes_all.dim() > 0:
         # solve disparity by dense alignment (enlarged image)
-        succ, dis_final = dense_align.align_parallel(calib, im_info.data[0,2], \
-                                            im_left_data.data, im_right_data.data, \
+        succ, dis_final = dense_align.align_parallel(calib, im_info.data[0,2],
+                                            im_left_data.data, im_right_data.data,
                                             boxes_all[:,0:4], kpts_all, poses_all[:,0:7])
         
         # do 3D rectify using the aligned disparity
@@ -300,15 +305,15 @@ if __name__ == '__main__':
             box_left = boxes_all[solved_idx,0:4]
             score = boxes_all[solved_idx,4]
             dim = poses_all[solved_idx,3:6]
-            state_rect, z = box_estimator.solve_x_y_theta_from_kpt(im2show_left.shape, calib, \
-                                              poses_all[solved_idx,7], dim, box_left, \
-                                              dis_final[solved_idx], kpts_all[solved_idx])
+            state_rect, z = box_estimator.solve_x_y_theta_from_kpt(im2show_left.shape, calib,
+                                              poses_all[solved_idx,7].cpu().numpy(), dim.cpu().numpy(), box_left.cpu().numpy(),
+                                              dis_final[solved_idx].cpu().numpy(), kpts_all[solved_idx].cpu().numpy())
             xyz = np.array([state_rect[0], state_rect[1], z])
             theta = state_rect[2]
 
             if score > vis_thresh:
-              im_box = vis_utils.vis_box_in_bev(im_box, xyz, dim, theta, width=im2show_left.shape[0]*2)
-              im2show_left = vis_utils.vis_single_box_in_img(im2show_left, calib, xyz, dim, theta)
+              im_box = vis_utils.vis_box_in_bev(im_box, xyz, dim.cpu().numpy(), theta, width=im2show_left.shape[0]*2)
+              im2show_left = vis_utils.vis_single_box_in_img(im2show_left, calib, xyz, dim.cpu().numpy(), theta)
 
       solve_time = time.time() - solve_tic
 

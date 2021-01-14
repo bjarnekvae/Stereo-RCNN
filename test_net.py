@@ -119,15 +119,15 @@ if __name__ == '__main__':
     for i in range(num_images):
       
       data = next(data_iter)
-      im_left_data.data.resize_(data[0].size()).copy_(data[0])
-      im_right_data.data.resize_(data[1].size()).copy_(data[1])
-      im_info.data.resize_(data[2].size()).copy_(data[2])
-      gt_boxes_left.data.resize_(data[3].size()).copy_(data[3])
-      gt_boxes_right.data.resize_(data[4].size()).copy_(data[4])
-      gt_boxes_merge.data.resize_(data[5].size()).copy_(data[5])
-      gt_dim_orien.data.resize_(data[6].size()).copy_(data[6])
-      gt_kpts.data.resize_(data[7].size()).copy_(data[7])
-      num_boxes.data.resize_(data[8].size()).copy_(data[8])
+      im_left_data.resize_(data[0].size()).copy_(data[0])
+      im_right_data.resize_(data[1].size()).copy_(data[1])
+      im_info.resize_(data[2].size()).copy_(data[2])
+      gt_boxes_left.resize_(data[3].size()).copy_(data[3])
+      gt_boxes_right.resize_(data[4].size()).copy_(data[4])
+      gt_boxes_merge.resize_(data[5].size()).copy_(data[5])
+      gt_dim_orien.resize_(data[6].size()).copy_(data[6])
+      gt_kpts.resize_(data[7].size()).copy_(data[7])
+      num_boxes.resize_(data[8].size()).copy_(data[8])
       
       det_tic = time.time()
       rois_left, rois_right, cls_prob, bbox_pred, bbox_pred_dim, kpts_prob,\

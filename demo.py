@@ -130,9 +130,9 @@ if __name__ == '__main__':
 
     info = torch.from_numpy(info)
 
-    im_left_data.data.resize_(img_left.size()).copy_(img_left)
-    im_right_data.data.resize_(img_right.size()).copy_(img_right)
-    im_info.data.resize_(info.size()).copy_(info)
+    im_left_data.resize_(img_left.size()).copy_(img_left)
+    im_right_data.resize_(img_right.size()).copy_(img_right)
+    im_info.resize_(info.size()).copy_(info)
     
     det_tic = time.time()
     rois_left, rois_right, cls_prob, bbox_pred, bbox_pred_dim, kpts_prob,\

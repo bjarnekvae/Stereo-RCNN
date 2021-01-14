@@ -9,3 +9,4 @@ data/kitti/object
 *.pyc
 *.so
 *.o
+.idea/

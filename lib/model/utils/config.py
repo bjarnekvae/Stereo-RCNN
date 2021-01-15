@@ -46,13 +46,13 @@ __C.TRAIN.TRUNCATED = False
 __C.TRAIN.BIAS_DECAY = False
 
 # The scale is the pixel size of an image's shortest side
-__C.TRAIN.SCALES = (600,)
+__C.TRAIN.SCALES = (462,)
 
 # Max pixel size of the longest side of a scaled input image
 __C.TRAIN.MAX_SIZE = 2484
 
 # Minibatch size (number of regions of interest [ROIs])
-__C.TRAIN.BATCH_SIZE = 512
+__C.TRAIN.BATCH_SIZE = 30
 
 # Fraction of minibatch that is labeled foreground (i.e. class > 0)
 __C.TRAIN.FG_FRACTION = 0.25

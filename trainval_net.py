@@ -64,7 +64,7 @@ def parse_args():
   # config optimization
   parser.add_argument('--lr_decay_step', dest='lr_decay_step',
                       help='step to do learning rate decay, unit is epoch',
-                      default=1000, type=int)
+                      default=2000, type=int)
   parser.add_argument('--lr_decay_gamma', dest='lr_decay_gamma',
                       help='learning rate decay ratio',
                       default=0.1, type=float)
@@ -340,14 +340,13 @@ if __name__ == '__main__':
   #optimizer = torch.optim.Adam(params, lr=1e-3)#, momentum=cfg.TRAIN.MOMENTUM)
   optimizer = torch.optim.SGD(params, momentum=cfg.TRAIN.MOMENTUM)#, lr=0.0001)
 
-  if args.resume:
-    load_name = os.path.join(output_dir,
-      'stereo_rcnn_{}_{}.pth'.format(args.checkepoch, args.checkpoint))
+  if True:
+    load_name = os.path.join(output_dir, "stereo_rcnn_epoch_240_loss_1351.8699951171875.pth")
     log_string('loading checkpoint %s' % (load_name))
     checkpoint = torch.load(load_name)
     args.start_epoch = checkpoint['epoch']
     stereoRCNN.load_state_dict(checkpoint['model'])
-    lr = optimizer.param_groups[0]['lr']
+    lr = 0.01
     uncert.data = checkpoint['uncert']
     log_string('loaded checkpoint %s' % (load_name))
 
@@ -442,7 +441,7 @@ if __name__ == '__main__':
 
       del rpn_loss_cls, rpn_loss_box_left_right, RCNN_loss_cls, RCNN_loss_bbox, RCNN_loss_dim_orien, RCNN_loss_kpts
 
-    if epoch % 20 == 0:
+    if epoch % 100 == 0:
       save_name = os.path.join(output_dir, 'stereo_rcnn_epoch_{}_loss_{}.pth'.format(epoch, loss.item()))
       save_checkpoint({
         'epoch': epoch + 1,

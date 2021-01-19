@@ -68,11 +68,9 @@ if __name__ == '__main__':
   input_dir = args.load_dir + "/"
   if not os.path.exists(input_dir):
     raise Exception('There is no input directory for loading network from ' + input_dir)
-  #load_name = os.path.join(input_dir,
-  #  'stereo_rcnn_{}_{}.pth'.format(args.checkepoch, args.checkpoint))
+  load_name = os.path.join(input_dir,
+    'stereo_rcnn_{}_{}.pth'.format(args.checkepoch, args.checkpoint))
   kitti_classes = np.asarray(['__background__', 'Car'])
-
-  load_name = '/home/bjarne/raid/digiras_302004685/neural_net/models/stereo_rcnn_epoch_1000_loss_-35.31433868408203.pth'
 
   # initilize the network here.
   stereoRCNN = resnet(kitti_classes, 101, pretrained=False)
@@ -93,51 +91,37 @@ if __name__ == '__main__':
 
     stereoRCNN.cuda()
 
-    eval_thresh = 0.00
-    vis_thresh = 0.01
+    eval_thresh = 0.05
+    vis_thresh = 0.7
 
     stereoRCNN.eval()
-
-    cv2.namedWindow("l_img", cv2.WINDOW_NORMAL)
-    cv2.namedWindow("r_img", cv2.WINDOW_NORMAL)
     
     # read data
-    img_path = '/home/bjarne/raid/digiras_302004685/neural_net/training_data/D20201115T235444_2050.png'
-    img = cv2.imread(img_path)
-    img_left = img[:, :int(img.shape[1] / 2), :]
-    img_right = img[:, int(img.shape[1] / 2) - 1:-1, :]
+    img_l_path = 'demo/left.png'
+    img_r_path = 'demo/right.png'
 
-    #scale_percent = 25  # percent of original size
-    #width = int(img_left.shape[1] * scale_percent / 100)
-    #height = int(img_left.shape[0] * scale_percent / 100)
-    #dim = (width, height)
-    #img_left = cv2.resize(img_left, dim, interpolation=cv2.INTER_AREA)
-    #img_right = cv2.resize(img_right, dim, interpolation=cv2.INTER_AREA)
+    img_left = cv2.imread(img_l_path)
+    img_right = cv2.imread(img_r_path)
 
-    vis_l_im = img_left.copy()
-    vis_r_im = img_right.copy()
-
-    im_shape = img_left.shape
-    im_size_min = np.min(im_shape[0:2])
-    im_scale = float(cfg.TRAIN.SCALES[0]) / float(im_size_min)
-    img_left = cv2.resize(img_left, None, None, fx=im_scale, fy=im_scale, interpolation=cv2.INTER_LINEAR)
-    img_right = cv2.resize(img_right, None, None, fx=im_scale, fy=im_scale, interpolation=cv2.INTER_LINEAR)
-
-    info = np.array([[img_left.shape[0], img_left.shape[1], im_scale]], dtype=np.float32)
-
+    # rgb -> bgr
     img_left = img_left.astype(np.float32, copy=False)
     img_right = img_right.astype(np.float32, copy=False)
 
     img_left -= cfg.PIXEL_MEANS
     img_right -= cfg.PIXEL_MEANS
 
-    #img_left = np.moveaxis(img_left.copy(), -1, 0)
-    #img_right = np.moveaxis(img_right.copy(), -1, 0)
+    im_shape = img_left.shape
+    im_size_min = np.min(im_shape[0:2])
+    im_scale = float(cfg.TRAIN.SCALES[0]) / float(im_size_min)
 
-    # TODO not correct!!
-    #info = np.array([[1848, 3264]])
-    #info = np.array([[img_right.shape[1], img_right.shape[2]]])
+    img_left = cv2.resize(img_left, None, None, fx=im_scale, fy=im_scale,
+                    interpolation=cv2.INTER_LINEAR)
+    img_right = cv2.resize(img_right, None, None, fx=im_scale, fy=im_scale,
+                    interpolation=cv2.INTER_LINEAR)
 
+    info = np.array([[img_left.shape[0], img_left.shape[1], \
+                         im_scale]], dtype=np.float32)
+    
     img_left = torch.from_numpy(img_left)
     img_left = img_left.permute(2, 0, 1).unsqueeze(0).contiguous()
 
@@ -154,40 +138,12 @@ if __name__ == '__main__':
     rois_left, rois_right, cls_prob, bbox_pred, bbox_pred_dim, kpts_prob,\
     left_prob, right_prob, rpn_loss_cls, rpn_loss_box_left_right,\
     RCNN_loss_cls, RCNN_loss_bbox, RCNN_loss_dim_orien, RCNN_loss_kpts, rois_label =\
-    stereoRCNN(im_left_data, im_right_data, im_info, gt_boxes, gt_boxes, gt_boxes, gt_boxes, gt_boxes, num_boxes)
+    stereoRCNN(im_left_data, im_right_data, im_info, gt_boxes, gt_boxes,\
+              gt_boxes, gt_boxes, gt_boxes, num_boxes)
     
     scores = cls_prob.data
     boxes_left = rois_left.data[:, :, 1:5]
     boxes_right = rois_right.data[:, :, 1:5]
-
-    '''
-
-    l_rois = boxes_left.cpu().numpy().astype(np.int)
-    r_rois = boxes_right.cpu().numpy().astype(np.int)
-
-    l_rois = np.squeeze(l_rois)
-    r_rois = np.squeeze(r_rois)
-
-    conf = right_prob.data.cpu().numpy()
-
-    print(conf.shape)
-    print(l_rois.shape)
-
-    for i, roi in enumerate(l_rois):
-      if roi[3] == 0:
-        continue
-      p1 = (roi[0], roi[1])
-      p2 = (roi[2], roi[3])
-      l_img = cv2.rectangle(vis_l_im, p1, p2, (0, 0, 0), 2)
-
-    for i, roi in enumerate(r_rois):
-      if roi[3] == 0:
-        continue
-      p1 = (roi[0], roi[1])
-      p2 = (roi[2], roi[3])
-      r_img = cv2.rectangle(vis_r_im, p1, p2, (0, 0, 0), 2)
-    '''
-
 
     bbox_pred = bbox_pred.data
     box_delta_left = bbox_pred.new(bbox_pred.size()[1], 4*len(kitti_classes)).zero_()
@@ -207,105 +163,111 @@ if __name__ == '__main__':
     box_delta_left = box_delta_left.view(-1,4)
     box_delta_right = box_delta_right.view(-1,4)
 
-    #kpts_prob = kpts_prob.data
-    #kpts_prob = kpts_prob.view(-1,4*cfg.KPTS_GRID)
-    #max_prob, kpts_delta = torch.max(kpts_prob,1)
+    dim_orien = bbox_pred_dim.data
+    dim_orien = dim_orien.view(-1,5)
 
-    #left_prob = left_prob.data
-    #left_prob = left_prob.view(-1,cfg.KPTS_GRID)
-    #_, left_delta = torch.max(left_prob,1)
+    kpts_prob = kpts_prob.data
+    kpts_prob = kpts_prob.view(-1,4*cfg.KPTS_GRID)
+    max_prob, kpts_delta = torch.max(kpts_prob,1)
 
-    #right_prob = right_prob.data
-    #right_prob = right_prob.view(-1,cfg.KPTS_GRID)
-    #_, right_delta = torch.max(right_prob,1)
+    left_prob = left_prob.data
+    left_prob = left_prob.view(-1,cfg.KPTS_GRID)
+    _, left_delta = torch.max(left_prob,1)
+
+    right_prob = right_prob.data
+    right_prob = right_prob.view(-1,cfg.KPTS_GRID)
+    _, right_delta = torch.max(right_prob,1)
 
     box_delta_left = box_delta_left * torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_STDS).cuda() \
                 + torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_MEANS).cuda()
     box_delta_right = box_delta_right * torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_STDS).cuda() \
                 + torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_MEANS).cuda()
+    dim_orien = dim_orien * torch.FloatTensor(cfg.TRAIN.DIM_NORMALIZE_STDS).cuda() \
+                + torch.FloatTensor(cfg.TRAIN.DIM_NORMALIZE_MEANS).cuda()
 
 
     box_delta_left = box_delta_left.view(1,-1,4*len(kitti_classes))
     box_delta_right = box_delta_right.view(1, -1,4*len(kitti_classes))
-    #kpts_delta = kpts_delta.view(1, -1, 1)
-    #left_delta = left_delta.view(1, -1, 1)
-    #right_delta = right_delta.view(1, -1, 1)
-    #max_prob = max_prob.view(1, -1, 1)
+    dim_orien = dim_orien.view(1, -1, 5*len(kitti_classes))
+    kpts_delta = kpts_delta.view(1, -1, 1)
+    left_delta = left_delta.view(1, -1, 1)
+    right_delta = right_delta.view(1, -1, 1)
+    max_prob = max_prob.view(1, -1, 1)
 
     pred_boxes_left = bbox_transform_inv(boxes_left, box_delta_left, 1)
     pred_boxes_right = bbox_transform_inv(boxes_right, box_delta_right, 1)
-    #pred_kpts, kpts_type = kpts_transform_inv(boxes_left, kpts_delta,cfg.KPTS_GRID)
-    #pred_left = border_transform_inv(boxes_left, left_delta,cfg.KPTS_GRID)
-    #pred_right = border_transform_inv(boxes_left, right_delta,cfg.KPTS_GRID)
+    pred_kpts, kpts_type = kpts_transform_inv(boxes_left, kpts_delta,cfg.KPTS_GRID)
+    pred_left = border_transform_inv(boxes_left, left_delta,cfg.KPTS_GRID)
+    pred_right = border_transform_inv(boxes_left, right_delta,cfg.KPTS_GRID)
 
     pred_boxes_left = clip_boxes(pred_boxes_left, im_info.data, 1)
     pred_boxes_right = clip_boxes(pred_boxes_right, im_info.data, 1)
 
-    # TODO fix this
     pred_boxes_left /= im_info[0,2].data
     pred_boxes_right /= im_info[0,2].data
-    #pred_kpts /= im_info[0,2].data
-    #pred_left /= im_info[0,2].data
-    #pred_right /= im_info[0,2].data
+    pred_kpts /= im_info[0,2].data
+    pred_left /= im_info[0,2].data
+    pred_right /= im_info[0,2].data
 
     scores = scores.squeeze()
     pred_boxes_left = pred_boxes_left.squeeze()
     pred_boxes_right = pred_boxes_right.squeeze()
 
-    #pred_kpts = torch.cat((pred_kpts, kpts_type, max_prob, pred_left, pred_right),2)
-    #pred_kpts = pred_kpts.squeeze()
+    pred_kpts = torch.cat((pred_kpts, kpts_type, max_prob, pred_left, pred_right),2)
+    pred_kpts = pred_kpts.squeeze()
+    dim_orien = dim_orien.squeeze()
 
     det_toc = time.time()
     detect_time = det_toc - det_tic
 
-    im2show_left = vis_l_im
-    im2show_right = vis_r_im
+    calib = kitti_utils.read_obj_calibration('demo/calib.txt')
+
+    im2show_left = np.copy(cv2.imread(img_l_path))
+    im2show_right = np.copy(cv2.imread(img_r_path))
+    
+    pointcloud = kitti_utils.get_point_cloud('demo/lidar.bin', calib)
+    im_box = vis_utils.vis_lidar_in_bev(pointcloud, width=im2show_left.shape[0]*2)
 
     for j in xrange(1, len(kitti_classes)):
       inds = torch.nonzero(scores[:,j] > eval_thresh).view(-1)
       # if there is det
-      print("inds:", inds.numel())
       if inds.numel() > 0:
         cls_scores = scores[:,j][inds]
-        print(cls_scores)
         _, order = torch.sort(cls_scores, 0, True)
 
         cls_boxes_left = pred_boxes_left[inds][:, j * 4:(j + 1) * 4]
         cls_boxes_right = pred_boxes_right[inds][:, j * 4:(j + 1) * 4]
+        cls_dim_orien = dim_orien[inds][:, j * 5:(j + 1) * 5]
         
-        #cls_kpts = pred_kpts[inds]
+        cls_kpts = pred_kpts[inds]
 
         cls_dets_left = torch.cat((cls_boxes_left, cls_scores.unsqueeze(1)), 1)
         cls_dets_right = torch.cat((cls_boxes_right, cls_scores.unsqueeze(1)), 1)
 
         cls_dets_left = cls_dets_left[order]
         cls_dets_right = cls_dets_right[order]
-        #cls_dim_orien = cls_dim_orien[order]
-        #cls_kpts = cls_kpts[order]
+        cls_dim_orien = cls_dim_orien[order]
+        cls_kpts = cls_kpts[order] 
 
         keep = nms(cls_boxes_left[order, :], cls_scores[order], cfg.TEST.NMS)
         keep = keep.view(-1).long()
         cls_dets_left = cls_dets_left[keep]
         cls_dets_right = cls_dets_right[keep]
-        #cls_dim_orien = cls_dim_orien[keep]
-        #cls_kpts = cls_kpts[keep]
+        cls_dim_orien = cls_dim_orien[keep]
+        cls_kpts = cls_kpts[keep]
 
         # optional operation, can check the regressed borderline keypoint using 2D box inference
-        #infered_kpts = kitti_utils.infer_boundary(im2show_left.shape, cls_dets_left.cpu().numpy())
-        #infered_kpts = torch.from_numpy(infered_kpts).type_as(cls_dets_left)
-        #for detect_idx in range(cls_dets_left.size()[0]):
-        #  if cls_kpts[detect_idx,4] - cls_kpts[detect_idx,3] < 0.5*(infered_kpts[detect_idx,1]-infered_kpts[detect_idx,0]):
-        #    cls_kpts[detect_idx,3:5] = infered_kpts[detect_idx]
+        infered_kpts = kitti_utils.infer_boundary(im2show_left.shape, cls_dets_left.cpu().numpy())
+        infered_kpts = torch.from_numpy(infered_kpts).type_as(cls_dets_left)
+        for detect_idx in range(cls_dets_left.size()[0]):
+          if cls_kpts[detect_idx,4] - cls_kpts[detect_idx,3] < \
+              0.5*(infered_kpts[detect_idx,1]-infered_kpts[detect_idx,0]):
+            cls_kpts[detect_idx,3:5] = infered_kpts[detect_idx]
 
-        im2show_left = vis_detections(im2show_left, kitti_classes[j], cls_dets_left.cpu().numpy(), vis_thresh)
-        im2show_right = vis_detections(im2show_right, kitti_classes[j], cls_dets_right.cpu().numpy(), vis_thresh)
-
-        print("success!")
-        cv2.imshow("l_img", im2show_left)
-        cv2.imshow("r_img", im2show_right)
-        cv2.waitKey()
-
-        quit()
+        im2show_left = vis_detections(im2show_left, kitti_classes[j], \
+                        cls_dets_left.cpu().numpy(), vis_thresh, cls_kpts.cpu().numpy())
+        im2show_right = vis_detections(im2show_right, kitti_classes[j], \
+                        cls_dets_right.cpu().numpy(), vis_thresh) 
 
         # read intrinsic
         f = calib.p2[0,0]

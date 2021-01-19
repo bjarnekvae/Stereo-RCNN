@@ -149,40 +149,48 @@ class LarvaeDataset(Dataset):
   def compose_data(self, l_img, r_img, l_rois, r_rois):
     data_point = list()
 
-    scale_percent = 25  # percent of original size
-    width = int(l_img.shape[1] * scale_percent / 100)
-    height = int(l_img.shape[0] * scale_percent / 100)
-    dim = (width, height)
+    # left and right images
+    im_shape = l_img.shape
+    im_size_min = np.min(im_shape[0:2])
+    im_scale = float(cfg.TRAIN.SCALES[0]) / float(im_size_min)
+    l_img = cv2.resize(l_img, None, None, fx=im_scale, fy=im_scale, interpolation=cv2.INTER_LINEAR)
+    r_img = cv2.resize(r_img, None, None, fx=im_scale, fy=im_scale, interpolation=cv2.INTER_LINEAR)
 
-    # resize image
-    print("before, img:", l_img.shape, "roi:", l_rois[0,:])
+    l_img = l_img.astype(np.float32, copy=False)
+    r_img = r_img.astype(np.float32, copy=False)
+    l_img -= cfg.PIXEL_MEANS
+    r_img -= cfg.PIXEL_MEANS
 
-    l_img = cv2.resize(l_img, dim, interpolation=cv2.INTER_AREA)
-    r_img = cv2.resize(r_img, dim, interpolation=cv2.INTER_AREA)
+    info = np.array([l_img.shape[0], l_img.shape[1], 1.0], dtype=np.float32)
 
-    data_point.append(np.moveaxis(l_img.copy(), -1, 0))
-    data_point.append(np.moveaxis(r_img.copy(), -1, 0))
-    data_point.append(np.array(self.im_size))
+    l_img = np.moveaxis(l_img.copy(), -1, 0)
+    r_img = np.moveaxis(r_img.copy(), -1, 0)
 
+    data_point.append(l_img)
+    data_point.append(r_img)
+
+    # Image info
+    data_point.append(info)
+
+    # left and right ROIS
     l_temp = np.zeros([30, 5])
     l_rois[:, 2] = l_rois[:, 0] + l_rois[:, 2]
     l_rois[:, 3] = l_rois[:, 1] + l_rois[:, 3]
-    l_rois = l_rois * scale_percent / 100
+    l_rois = l_rois * im_scale
     l_temp[0:l_rois.shape[0], 0:4] = l_rois
     l_temp[0:l_rois.shape[0], 4] = 1
 
     r_temp = np.zeros([30, 5])
     r_rois[:, 2] = r_rois[:, 0] + r_rois[:, 2]
     r_rois[:, 3] = r_rois[:, 1] + r_rois[:, 3]
-    r_rois = r_rois * scale_percent / 100
+    r_rois = r_rois * im_scale
     r_temp[0:r_rois.shape[0], 0:4] = r_rois
     r_temp[0:r_rois.shape[0], 4] = 1
-
-    print("after, img:", l_img.shape, "roi:", l_rois[0, :])
 
     data_point.append(l_temp.copy())
     data_point.append(r_temp.copy())
 
+    # Merged ROIS
     merge = np.zeros([30, 5])
     for i in range(30):
       merge[i, 0] = np.min([l_temp[i, 0], r_temp[i, 0]])
@@ -193,9 +201,9 @@ class LarvaeDataset(Dataset):
     merge[0:r_rois.shape[0], 4] = 1
     data_point.append(merge.copy())
 
-    data_point.append(np.zeros([30, 5]))
-    data_point.append(np.zeros([30, 6]))
-    data_point.append(r_rois.shape[0])
+    data_point.append(np.zeros([30, 5]))  # Object dimension (3) and viewpoint angle (1), orientation (1)? (?)
+    data_point.append(np.zeros([30, 6]))  # Object sparse key points (?)
+    data_point.append(r_rois.shape[0])    # Num objects
 
     return data_point.copy()
 
@@ -321,7 +329,7 @@ if __name__ == '__main__':
 
   stereoRCNN.create_architecture()
 
-  lr = 0.01
+  lr = 0.0001
 
   uncert = Variable(torch.rand(6).cuda(), requires_grad=True)
   torch.nn.init.constant(uncert, -1.0)
@@ -337,16 +345,15 @@ if __name__ == '__main__':
   params += [{'params':[uncert], 'lr':lr}]
 
   #optimizer = torch.optim.Adam(stereoRCNN.parameters(), lr=1e-4)#, momentum=cfg.TRAIN.MOMENTUM)
-  #optimizer = torch.optim.Adam(params, lr=1e-3)#, momentum=cfg.TRAIN.MOMENTUM)
-  optimizer = torch.optim.SGD(params, momentum=cfg.TRAIN.MOMENTUM)#, lr=0.0001)
+  optimizer = torch.optim.Adam(params, lr=lr)#, momentum=cfg.TRAIN.MOMENTUM)
+  #optimizer = torch.optim.SGD(params, momentum=cfg.TRAIN.MOMENTUM)#, lr=0.0001)
 
-  if True:
-    load_name = os.path.join(output_dir, "stereo_rcnn_epoch_240_loss_1351.8699951171875.pth")
+  if False:
+    load_name = os.path.join(output_dir, "stereo_rcnn_epoch_3400_loss_-65.22175598144531.pth")
     log_string('loading checkpoint %s' % (load_name))
     checkpoint = torch.load(load_name)
     args.start_epoch = checkpoint['epoch']
     stereoRCNN.load_state_dict(checkpoint['model'])
-    lr = 0.01
     uncert.data = checkpoint['uncert']
     log_string('loaded checkpoint %s' % (load_name))
 
@@ -362,9 +369,9 @@ if __name__ == '__main__':
     stereoRCNN.train()
     start = time.time()
 
-    if epoch % (args.lr_decay_step + 1) == 0:
-        adjust_learning_rate(optimizer, args.lr_decay_gamma)
-        lr *= args.lr_decay_gamma
+    #if epoch % (args.lr_decay_step + 1) == 0:
+    #    adjust_learning_rate(optimizer, args.lr_decay_gamma)
+    #    lr *= args.lr_decay_gamma
 
     data_iter = iter(dataloader)
     for step, data in enumerate(dataloader):
